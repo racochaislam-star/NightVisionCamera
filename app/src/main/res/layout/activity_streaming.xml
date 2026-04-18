@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_primary"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Top Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="20dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_arrow_back"
+                android:tint="@color/streaming_blue"
+                android:background="?attr/selectableItemBackgroundBorderless"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="البث المباشر 📡"
+                android:textSize="20sp"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/tvFps"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:text="0 fps"
+                android:textSize="11sp"
+                android:textColor="@color/streaming_blue"
+                android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- Status / Timer Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="20dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/streamingIndicator"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:background="@drawable/streaming_dot"
+                    android:visibility="gone"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tvTimer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00:00"
+                    android:textSize="44sp"
+                    android:textColor="@color/streaming_blue"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="جاهز للبث"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Stream URL Card (shown when streaming) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardStreamInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="#0D2A0D"
+            app:cardCornerRadius="16dp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="رابط البث"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"/>
+
+                <TextView
+                    android:id="@+id/tvStreamUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="http://..."
+                    android:textSize="14sp"
+                    android:textColor="@color/accent_green"
+                    android:fontFamily="monospace"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+
+                    <Button
+                        android:id="@+id/btnCopyUrl"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:text="نسخ الرابط"
+                        android:textSize="13sp"
+                        android:textColor="@color/accent_green"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        app:strokeColor="@color/accent_green_dim"
+                        android:isEnabled="false"
+                        android:layout_marginEnd="8dp"/>
+
+                    <Button
+                        android:id="@+id/btnOpenViewer"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:text="فتح المشاهد"
+                        android:textSize="13sp"
+                        android:textColor="#000"
+                        android:backgroundTint="@color/streaming_blue"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:isEnabled="false"/>
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Device Info -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/tvDeviceIp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="IP هذا الجهاز: --"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_primary"
+                    android:fontFamily="monospace"/>
+
+                <TextView
+                    android:id="@+id/tvStreamUrlPreview"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="(سيظهر الرابط عند بدء البث)"
+                    android:textSize="11sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Quality -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="دقة البث"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginBottom="8dp"/>
+
+                <RadioGroup
+                    android:id="@+id/rgQuality"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rb720p"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:text="720p"
+                        android:textColor="@color/text_primary"
+                        android:buttonTint="@color/streaming_blue"
+                        android:checked="true"/>
+
+                    <RadioButton
+                        android:id="@+id/rb1080p"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:text="1080p"
+                        android:textColor="@color/text_primary"
+                        android:buttonTint="@color/streaming_blue"/>
+                </RadioGroup>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🌙 الرؤية الليلية"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_primary"/>
+
+                    <Switch
+                        android:id="@+id/switchNightVision"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:thumbTint="@color/accent_green"
+                        android:trackTint="#1B4D1B"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvNightStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌙 رؤية ليلية"
+                    android:textSize="11sp"
+                    android:textColor="@color/accent_green"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Start/Stop Button -->
+        <Button
+            android:id="@+id/btnStartStop"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="▶ بدء البث"
+            android:textSize="18sp"
+            android:textColor="#000000"
+            android:textStyle="bold"
+            android:backgroundTint="@color/streaming_blue"
+            style="@style/Widget.MaterialComponents.Button"
+            app:cornerRadius="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="لا يحفظ على التخزين · يعمل في الخلفية · MJPEG/HTTP"
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary"
+            android:gravity="center"
+            android:layout_marginTop="12dp"/>
+
+    </LinearLayout>
+</ScrollView>
