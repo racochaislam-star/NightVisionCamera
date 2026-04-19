@@ -16,7 +16,9 @@ jobs:
         with:
           gradle-version: '8.4'
       - name: Build APK
-        run: gradle assembleDebug --stacktrace 2>&1 | tail -80
+        run: gradle assembleDebug
+      - name: Find APK
+        run: find . -name "*.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: NightVisionCamera-APK
