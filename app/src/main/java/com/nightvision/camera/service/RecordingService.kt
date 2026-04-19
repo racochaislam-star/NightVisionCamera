@@ -175,7 +175,6 @@ class RecordingService : LifecycleService() {
                 // Start recording - NO AUDIO
                 activeRecording = videoCapture.output
                     .prepareRecording(this, outputOptions)
-                    .withAudioDisabled()
                     .start(cameraExecutor) { event ->
                         handleRecordingEvent(event)
                     }
