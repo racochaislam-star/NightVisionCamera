@@ -272,7 +272,7 @@ class MjpegServer(private val port: Int = 8080) {
                 setInterval(() => {
                     fetch('/info').then(r => r.json()).then(d => {
                         document.getElementById('info').textContent = 
-                            `${d.clients} متصل · ${d.fps} إطار/ث`;
+                            `${"$"}{d.clients} متصل · ${"$"}{d.fps} إطار/ث`;
                     }).catch(() => {});
                 }, 2000);
             </script>
