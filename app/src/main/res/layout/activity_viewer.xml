@@ -183,7 +183,7 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 app:strokeColor="@color/warning_red"
                 android:layout_marginStart="6dp"
-                android:isEnabled="false"/>
+                android:enabled="false"/>
         </LinearLayout>
     </LinearLayout>
 
