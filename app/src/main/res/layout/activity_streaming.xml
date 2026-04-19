@@ -144,7 +144,7 @@
                         android:textColor="@color/accent_green"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:strokeColor="@color/accent_green_dim"
-                        android:isEnabled="false"
+                        android:enabled="false"
                         android:layout_marginEnd="8dp"/>
 
                     <Button
@@ -157,7 +157,7 @@
                         android:textColor="#000"
                         android:backgroundTint="@color/streaming_blue"
                         style="@style/Widget.MaterialComponents.Button"
-                        android:isEnabled="false"/>
+                        android:enabled="false"/>
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
