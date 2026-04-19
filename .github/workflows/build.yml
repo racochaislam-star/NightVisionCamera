@@ -16,9 +16,8 @@ jobs:
         with:
           gradle-version: '8.4'
       - name: Build APK
-        run: gradle assembleDebug 2>&1 | grep -E "^e:|error:" | head -30 || gradle assembleDebug
+        run: gradle assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: NightVisionCamera-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
