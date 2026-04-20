@@ -150,8 +150,7 @@ class RecordingService : LifecycleService() {
             val videoCapture = VideoCapture.withOutput(recorder)
 
             // Output file
-            val moviesDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES)
-            val outputDir = java.io.File(moviesDir, "NightVision")
+            val outputDir = getExternalFilesDir("NightVision") ?: filesDir
             outputDir.mkdirs()
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val outputFile = File(outputDir, "NightVision_${timestamp}.mp4")
