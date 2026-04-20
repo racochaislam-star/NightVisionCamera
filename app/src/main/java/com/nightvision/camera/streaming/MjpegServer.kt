@@ -6,13 +6,9 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Lightweight MJPEG HTTP Server
- * Streams JPEG frames over HTTP multipart/x-mixed-replace
- * Viewable in any browser: http://DEVICE_IP:8080/stream
- * Also viewable in the built-in ViewerActivity
- */
 class MjpegServer(private val port: Int = 8080) {
 
     private val TAG = "MjpegServer"
@@ -20,35 +16,66 @@ class MjpegServer(private val port: Int = 8080) {
     private val clients = CopyOnWriteArrayList<ClientConnection>()
     private val executor = Executors.newCachedThreadPool()
 
-    @Volatile
-    private var running = false
-
+    @Volatile var running = false
+    @Volatile var accessCode: String = generateCode()
+    @Volatile var streamEnabled: Boolean = true
     private var frameCount = 0L
     private var startTime = 0L
+    private var lastFrame: ByteArray? = null
 
     data class ClientConnection(
         val socket: Socket,
         val outputStream: OutputStream,
-        var isReady: Boolean = false
+        val ip: String,
+        val id: String = UUID.randomUUID().toString().take(8),
+        var isReady: Boolean = false,
+        val connectedAt: Long = System.currentTimeMillis()
     )
+
+    fun generateCode(): String {
+        return (1000..9999).random().toString()
+    }
+
+    fun resetCode(): String {
+        accessCode = generateCode()
+        disconnectAll()
+        return accessCode
+    }
+
+    fun disconnectAll() {
+        clients.forEach { try { it.socket.close() } catch (_: Exception) {} }
+        clients.clear()
+        Log.i(TAG, "All clients disconnected")
+    }
+
+    fun disconnectClient(clientId: String) {
+        val client = clients.find { it.id == clientId }
+        client?.let {
+            try { it.socket.close() } catch (_: Exception) {}
+            clients.remove(it)
+            Log.i(TAG, "Client $clientId disconnected")
+        }
+    }
+
+    fun getConnectedClients(): List<Map<String, String>> {
+        return clients.map { mapOf(
+            "id" to it.id,
+            "ip" to it.ip,
+            "since" to "${(System.currentTimeMillis() - it.connectedAt) / 1000}s"
+        )}
+    }
 
     fun start() {
         if (running) return
         running = true
         startTime = System.currentTimeMillis()
-
         executor.execute {
             try {
-                serverSocket = ServerSocket(port).apply {
-                    soTimeout = 0 // No timeout on accept
-                    reuseAddress = true
-                }
-                Log.i(TAG, "MJPEG server started on port $port")
-
+                serverSocket = ServerSocket(port).apply { reuseAddress = true }
+                Log.i(TAG, "Server started on port $port, code: $accessCode")
                 while (running && !serverSocket!!.isClosed) {
                     try {
                         val clientSocket = serverSocket!!.accept()
-                        Log.d(TAG, "Client connected: ${clientSocket.inetAddress.hostAddress}")
                         executor.execute { handleClient(clientSocket) }
                     } catch (e: Exception) {
                         if (running) Log.e(TAG, "Accept error: ${e.message}")
@@ -63,123 +90,126 @@ class MjpegServer(private val port: Int = 8080) {
     private fun handleClient(socket: Socket) {
         try {
             socket.soTimeout = 5000
+            val ip = socket.inetAddress.hostAddress ?: "unknown"
             val inputStream = socket.getInputStream()
             val outputStream = socket.getOutputStream()
-
-            // Read HTTP request
-            val sb = StringBuilder()
-            val buffer = ByteArray(1024)
+            val buffer = ByteArray(4096)
             var n = 0
-            try {
-                n = inputStream.read(buffer)
-            } catch (e: Exception) { /* timeout ok */ }
+            try { n = inputStream.read(buffer) } catch (e: Exception) {}
+            if (n <= 0) { socket.close(); return }
+            val request = String(buffer, 0, n)
+            val firstLine = request.lines().firstOrNull() ?: ""
+            val path = firstLine.split(" ").getOrNull(1) ?: "/"
 
-            if (n > 0) {
-                sb.append(String(buffer, 0, n))
-            }
-
-            val request = sb.toString()
-            Log.v(TAG, "Request: ${request.lines().firstOrNull()}")
+            // Extract code from URL params
+            val urlCode = extractParam(path, "code")
 
             when {
-                request.contains("GET /stream") -> {
-                    // Send MJPEG stream headers
-                    val response = buildString {
-                        append("HTTP/1.1 200 OK\r\n")
-                        append("Content-Type: multipart/x-mixed-replace; boundary=frame\r\n")
-                        append("Cache-Control: no-cache, no-store\r\n")
-                        append("Pragma: no-cache\r\n")
-                        append("Access-Control-Allow-Origin: *\r\n")
-                        append("Connection: close\r\n")
-                        append("\r\n")
+                path.startsWith("/stream") -> {
+                    if (!streamEnabled) {
+                        sendError(outputStream, 503, "البث متوقف مؤقتاً")
+                        socket.close(); return
                     }
-                    outputStream.write(response.toByteArray(Charsets.US_ASCII))
+                    if (urlCode != accessCode) {
+                        sendError(outputStream, 401, "كود خاطئ أو منتهي الصلاحية")
+                        socket.close(); return
+                    }
+                    val response = "HTTP/1.1 200 OK
+Content-Type: multipart/x-mixed-replace; boundary=frame
+Cache-Control: no-cache
+Access-Control-Allow-Origin: *
+Connection: close
+
+"
+                    outputStream.write(response.toByteArray())
                     outputStream.flush()
                     socket.soTimeout = 0
-
-                    val conn = ClientConnection(socket, outputStream, isReady = true)
+                    val conn = ClientConnection(socket, outputStream, ip, isReady = true)
                     clients.add(conn)
-                    Log.i(TAG, "Streaming client added. Total: ${clients.size}")
-
-                    // Keep alive until disconnected
-                    while (running && !socket.isClosed) {
-                        Thread.sleep(500)
-                    }
+                    Log.i(TAG, "Client $ip connected. Total: ${clients.size}")
+                    while (running && !socket.isClosed) { Thread.sleep(500) }
                     clients.remove(conn)
                 }
-
-                request.contains("GET /snapshot") -> {
-                    // Serve last frame as JPEG snapshot
-                    lastFrame?.let { jpeg ->
-                        val response = buildString {
-                            append("HTTP/1.1 200 OK\r\n")
-                            append("Content-Type: image/jpeg\r\n")
-                            append("Content-Length: ${jpeg.size}\r\n")
-                            append("Cache-Control: no-cache\r\n")
-                            append("Access-Control-Allow-Origin: *\r\n")
-                            append("\r\n")
-                        }
-                        outputStream.write(response.toByteArray(Charsets.US_ASCII))
-                        outputStream.write(jpeg)
-                        outputStream.flush()
-                    } ?: run {
-                        outputStream.write("HTTP/1.1 503 Service Unavailable\r\n\r\n".toByteArray())
+                path.startsWith("/admin") -> {
+                    val adminCode = extractParam(path, "admin")
+                    if (adminCode != accessCode) {
+                        sendError(outputStream, 401, "غير مصرح")
+                        socket.close(); return
                     }
+                    val action = extractParam(path, "action")
+                    val result = when(action) {
+                        "reset_code" -> { val c = resetCode(); """{"code":"$c","msg":"تم تغيير الكود"}""" }
+                        "disconnect_all" -> { disconnectAll(); """{"msg":"تم قطع جميع المشاهدين"}""" }
+                        "toggle_stream" -> { streamEnabled = !streamEnabled; """{"enabled":$streamEnabled}""" }
+                        "clients" -> { val c = getConnectedClients(); """{"clients":$c,"count":${c.size}}""" }
+                        else -> """{"clients":${getConnectedClients()},"code":"$accessCode","enabled":$streamEnabled}"""
+                    }
+                    val resp = "HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: ${result.length}
+Access-Control-Allow-Origin: *
+
+$result"
+                    outputStream.write(resp.toByteArray())
                     socket.close()
                 }
-
-                request.contains("GET /info") -> {
+                path.startsWith("/info") -> {
                     val fps = if (System.currentTimeMillis() - startTime > 0)
-                        (frameCount * 1000 / (System.currentTimeMillis() - startTime)).toString()
-                    else "0"
-                    val json = """{"clients":${clients.size},"frames":$frameCount,"fps":$fps}"""
-                    val response = buildString {
-                        append("HTTP/1.1 200 OK\r\n")
-                        append("Content-Type: application/json\r\n")
-                        append("Content-Length: ${json.length}\r\n")
-                        append("Access-Control-Allow-Origin: *\r\n")
-                        append("\r\n")
-                        append(json)
-                    }
-                    outputStream.write(response.toByteArray(Charsets.US_ASCII))
+                        (frameCount * 1000 / (System.currentTimeMillis() - startTime)).toString() else "0"
+                    val json = """{"clients":${clients.size},"frames":$frameCount,"fps":$fps,"enabled":$streamEnabled}"""
+                    val resp = "HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: ${json.length}
+Access-Control-Allow-Origin: *
+
+$json"
+                    outputStream.write(resp.toByteArray())
                     socket.close()
                 }
-
                 else -> {
-                    // Serve HTML viewer page
                     val html = buildViewerHtml()
-                    val response = buildString {
-                        append("HTTP/1.1 200 OK\r\n")
-                        append("Content-Type: text/html; charset=utf-8\r\n")
-                        append("Content-Length: ${html.toByteArray().size}\r\n")
-                        append("Connection: close\r\n")
-                        append("\r\n")
-                        append(html)
-                    }
-                    outputStream.write(response.toByteArray(Charsets.UTF_8))
+                    val resp = "HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Length: ${html.toByteArray().size}
+Connection: close
+
+$html"
+                    outputStream.write(resp.toByteArray(Charsets.UTF_8))
                     socket.close()
                 }
             }
         } catch (e: Exception) {
-            Log.d(TAG, "Client disconnected: ${e.message}")
+            Log.d(TAG, "Client error: ${e.message}")
             try { socket.close() } catch (_: Exception) {}
         }
     }
 
-    private var lastFrame: ByteArray? = null
+    private fun sendError(out: OutputStream, code: Int, msg: String) {
+        val html = "<html><body style='background:#000;color:#f44;font-family:monospace;padding:40px'><h2>$code</h2><p>$msg</p></body></html>"
+        val resp = "HTTP/1.1 $code Error
+Content-Type: text/html
+Content-Length: ${html.length}
 
-    /**
-     * Send a JPEG frame to all connected streaming clients
-     */
+$html"
+        try { out.write(resp.toByteArray()) } catch (_: Exception) {}
+    }
+
+    private fun extractParam(path: String, key: String): String {
+        val query = path.substringAfter("?", "")
+        return query.split("&").find { it.startsWith("$key=") }?.substringAfter("=") ?: ""
+    }
+
     fun sendFrame(jpegBytes: ByteArray) {
         lastFrame = jpegBytes
         frameCount++
-
         if (clients.isEmpty()) return
+        val header = "--frame
+Content-Type: image/jpeg
+Content-Length: ${jpegBytes.size}
 
-        val header = "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpegBytes.size}\r\n\r\n".toByteArray(Charsets.US_ASCII)
-        val footer = "\r\n".toByteArray(Charsets.US_ASCII)
-
+".toByteArray()
+        val footer = "
+".toByteArray()
         val toRemove = mutableListOf<ClientConnection>()
         for (conn in clients) {
             if (!conn.isReady) continue
@@ -191,7 +221,6 @@ class MjpegServer(private val port: Int = 8080) {
                     conn.outputStream.flush()
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "Client write failed, removing: ${e.message}")
                 toRemove.add(conn)
                 try { conn.socket.close() } catch (_: Exception) {}
             }
@@ -199,84 +228,62 @@ class MjpegServer(private val port: Int = 8080) {
         clients.removeAll(toRemove)
     }
 
-    fun getClientCount(): Int = clients.size
+    fun getClientCount() = clients.size
 
     fun stop() {
         running = false
-        clients.forEach { try { it.socket.close() } catch (_: Exception) {} }
-        clients.clear()
+        disconnectAll()
         try { serverSocket?.close() } catch (_: Exception) {}
-        Log.i(TAG, "MJPEG server stopped. Total frames sent: $frameCount")
     }
 
-    private fun buildViewerHtml(): String = """
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-            <title>🌙 Night Vision Camera</title>
-            <style>
-                * { margin:0; padding:0; box-sizing:border-box; }
-                body { background:#0a0a0a; color:#00e676; font-family:monospace; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-                .header { padding:16px; text-align:center; border-bottom:1px solid #1a1a1a; width:100%; }
-                h1 { font-size:1.2em; color:#00e676; }
-                .subtitle { font-size:0.8em; color:#4caf50; margin-top:4px; }
-                .stream-container { flex:1; display:flex; align-items:center; justify-content:center; padding:16px; width:100%; }
-                #stream { max-width:100%; max-height:80vh; border:2px solid #00e676; border-radius:8px; display:block; }
-                .status { padding:8px 16px; font-size:0.75em; color:#4caf50; text-align:center; }
-                .dot { display:inline-block; width:8px; height:8px; background:#00e676; border-radius:50%; margin-right:6px; animation:blink 1s infinite; }
-                @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-                .controls { padding:16px; display:flex; gap:12px; justify-content:center; }
-                button { background:#1a1a1a; color:#00e676; border:1px solid #00e676; padding:10px 20px; border-radius:8px; font-size:0.9em; cursor:pointer; }
-                button:active { background:#00e676; color:#000; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>🌙 Night Vision Camera</h1>
-                <div class="subtitle">البث المباشر - Live Stream</div>
-            </div>
-            <div class="stream-container">
-                <img id="stream" src="/stream" alt="Live Stream" onerror="onError()">
-            </div>
-            <div class="status">
-                <span class="dot"></span>
-                بث مباشر | Live &nbsp;·&nbsp; <span id="info">جارٍ الاتصال...</span>
-            </div>
-            <div class="controls">
-                <button onclick="refreshStream()">🔄 تحديث</button>
-                <button onclick="toggleFullscreen()">⛶ ملء الشاشة</button>
-                <button onclick="takeSnapshot()">📷 لقطة</button>
-            </div>
-            <script>
-                function refreshStream() {
-                    const img = document.getElementById('stream');
-                    img.src = '/stream?' + Date.now();
-                }
-                function onError() {
-                    document.getElementById('info').textContent = 'انقطع الاتصال - محاولة إعادة الاتصال...';
-                    setTimeout(refreshStream, 3000);
-                }
-                function toggleFullscreen() {
-                    const img = document.getElementById('stream');
-                    if (document.fullscreenElement) { document.exitFullscreen(); }
-                    else { img.requestFullscreen(); }
-                }
-                function takeSnapshot() {
-                    const a = document.createElement('a');
-                    a.href = '/snapshot';
-                    a.download = 'snapshot.jpg';
-                    a.click();
-                }
-                setInterval(() => {
-                    fetch('/info').then(r => r.json()).then(d => {
-                        document.getElementById('info').textContent = 
-                            `${"$"}{d.clients} متصل · ${"$"}{d.fps} إطار/ث`;
-                    }).catch(() => {});
-                }, 2000);
-            </script>
-        </body>
-        </html>
-    """.trimIndent()
+    private fun buildViewerHtml(): String = """<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Night Vision - مشاهدة البث</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px}
+h1{color:#00e676;margin-bottom:8px}
+.card{background:#1e1e1e;border-radius:12px;padding:20px;width:100%;max-width:400px;margin:8px 0}
+input{width:100%;background:#111;border:1px solid #333;color:#fff;padding:12px;border-radius:8px;font-size:1.2em;text-align:center;letter-spacing:8px;margin:8px 0}
+.btn{width:100%;background:#00e676;color:#000;border:none;padding:14px;border-radius:8px;font-size:1em;font-weight:bold;cursor:pointer;margin-top:8px}
+#streamDiv{display:none;width:100%}
+#stream{width:100%;border:2px solid #00e676;border-radius:8px}
+.dot{display:inline-block;width:8px;height:8px;background:#00e676;border-radius:50%;margin-left:6px;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.err{color:#f44;font-size:.9em;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>🌙 Night Vision</h1>
+<div class="card" id="loginDiv">
+  <p style="color:#78909c;margin-bottom:12px;text-align:center">أدخل كود المشاهدة</p>
+  <input type="number" id="codeInput" placeholder="0000" maxlength="4">
+  <button class="btn" onclick="connect()">▶ مشاهدة البث</button>
+  <p class="err" id="errMsg"></p>
+</div>
+<div id="streamDiv">
+  <p style="color:#00e676;text-align:center;margin-bottom:8px"><span class="dot"></span> بث مباشر</p>
+  <img id="stream" alt="stream">
+</div>
+<script>
+function connect(){
+  const code=document.getElementById('codeInput').value;
+  if(!code||code.length<4){document.getElementById('errMsg').textContent='أدخل كوداً صحيحاً';return;}
+  const url='/stream?code='+code;
+  document.getElementById('stream').src=url;
+  document.getElementById('stream').onerror=function(){
+    document.getElementById('errMsg').textContent='كود خاطئ أو البث متوقف';
+    document.getElementById('streamDiv').style.display='none';
+    document.getElementById('loginDiv').style.display='block';
+  };
+  document.getElementById('loginDiv').style.display='none';
+  document.getElementById('streamDiv').style.display='block';
+}
+document.getElementById('codeInput').addEventListener('keypress',function(e){if(e.key==='Enter')connect();});
+</script>
+</body>
+</html>""".trimIndent()
 }
