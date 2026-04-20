@@ -211,6 +211,7 @@ class RecordingService : LifecycleService() {
                 if (!event.hasError()) {
                     Log.i(TAG, "Recording saved: $outputFilePath")
                     statusListener?.invoke("saved:$outputFilePath")
+                    android.media.MediaScannerConnection.scanFile(this@RecordingService, arrayOf(outputFilePath), arrayOf("video/mp4"), null)
                 } else {
                     Log.e(TAG, "Recording error: ${event.error}")
                     statusListener?.invoke("error:${event.error}")
