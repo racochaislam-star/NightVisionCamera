@@ -209,9 +209,9 @@ $html"
 Content-Type: image/jpeg
 Content-Length: ${jpegBytes.size}
 
-".toByteArray(charset("US-ASCII"))
+".toByteArray(Charsets.UTF_8)
         val footer = "
-".toByteArray(charset("US-ASCII"))
+".toByteArray(Charsets.UTF_8)
         val toRemove = mutableListOf<ClientConnection>()
         for (conn in clients) {
             if (!conn.isReady) continue
