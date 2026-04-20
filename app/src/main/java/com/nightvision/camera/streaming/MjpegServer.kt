@@ -205,13 +205,10 @@ $html"
         lastFrame = jpegBytes
         frameCount++
         if (clients.isEmpty()) return
-        val header = "--frame
-Content-Type: image/jpeg
-Content-Length: ${jpegBytes.size}
-
-".toByteArray(Charsets.UTF_8)
-        val footer = "
-".toByteArray(Charsets.UTF_8)
+        val cr="
+"
+        val header=("--frame"+cr+"Content-Type: image/jpeg"+cr+"Content-Length: "+jpegBytes.size+cr+cr).toByteArray(Charsets.UTF_8)
+        val footer=cr.toByteArray(Charsets.UTF_8)
         val toRemove = mutableListOf<ClientConnection>()
         for (conn in clients) {
             if (!conn.isReady) continue
