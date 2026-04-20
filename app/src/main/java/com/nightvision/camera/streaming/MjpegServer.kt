@@ -1,6 +1,8 @@
 package com.nightvision.camera.streaming
 
 import android.util.Log
+import java.io.BufferedInputStream
+import java.io.InputStream
 import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
@@ -207,9 +209,9 @@ $html"
 Content-Type: image/jpeg
 Content-Length: ${jpegBytes.size}
 
-".toByteArray(Charsets.US_ASCII)
+".toByteArray(charset("US-ASCII"))
         val footer = "
-".toByteArray(Charsets.US_ASCII)
+".toByteArray(charset("US-ASCII"))
         val toRemove = mutableListOf<ClientConnection>()
         for (conn in clients) {
             if (!conn.isReady) continue
