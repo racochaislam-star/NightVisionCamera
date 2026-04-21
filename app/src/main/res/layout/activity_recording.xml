@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg_primary" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="16dp">
+            <ImageButton android:id="@+id/btnBack" android:layout_width="40dp" android:layout_height="40dp"
+                android:src="@drawable/ic_arrow_back" android:background="?attr/selectableItemBackgroundBorderless"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="التسجيل المحلي"
+                android:textSize="18sp" android:textColor="@color/text_primary"
+                android:textStyle="bold" android:gravity="center"/>
+            <View android:layout_width="40dp" android:layout_height="40dp"/>
+        </LinearLayout>
+        <androidx.cardview.widget.CardView android:layout_width="match_parent"
+            android:layout_height="wrap_content" app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="16dp" android:layout_marginBottom="12dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="20dp" android:gravity="center">
+                <View android:id="@+id/recDot" android:layout_width="12dp" android:layout_height="12dp"
+                    android:background="@drawable/rec_dot" android:visibility="gone" android:layout_marginBottom="8dp"/>
+                <TextView android:id="@+id/tvTimer" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="00:00:00"
+                    android:textSize="52sp" android:textColor="@color/accent_green"
+                    android:fontFamily="monospace" android:textStyle="bold"/>
+                <TextView android:id="@+id/tvStatus" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="جاهز"
+                    android:textSize="13sp" android:textColor="@color/text_secondary" android:layout_marginTop="8dp"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+        <androidx.cardview.widget.CardView android:layout_width="match_parent"
+            android:layout_height="wrap_content" app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="14dp" android:layout_marginBottom="12dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="الجودة" android:textSize="13sp" android:textColor="@color/text_secondary"
+                    android:layout_marginBottom="8dp"/>
+                <RadioGroup android:id="@+id/rgQuality" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:orientation="horizontal">
+                    <RadioButton android:id="@+id/rb720p" android:layout_width="0dp"
+                        android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="720p HD" android:textColor="@color/text_primary"
+                        android:buttonTint="@color/accent_green" android:checked="true"/>
+                    <RadioButton android:id="@+id/rb1080p" android:layout_width="0dp"
+                        android:layout_height="wrap_content" android:layout_weight="1"
+                        android:text="1080p FHD" android:textColor="@color/text_primary"
+                        android:buttonTint="@color/accent_green"/>
+                </RadioGroup>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="8dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="الرؤية الليلية"
+                        android:textSize="13sp" android:textColor="@color/text_primary"/>
+                    <Switch android:id="@+id/swNight" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:checked="true"
+                        android:thumbTint="@color/accent_green" android:trackTint="#1B4D1B"/>
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+        <Button android:id="@+id/btnStartStop" android:layout_width="match_parent"
+            android:layout_height="60dp" android:text="▶ بدء التسجيل"
+            android:textSize="17sp" android:textColor="#000000" android:textStyle="bold"
+            android:backgroundTint="@color/accent_green"
+            style="@style/Widget.MaterialComponents.Button" app:cornerRadius="14dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="يعمل في الخلفية · بدون صوت · MP4"
+            android:textSize="11sp" android:textColor="@color/text_secondary"
+            android:gravity="center" android:layout_marginTop="10dp"/>
+    </LinearLayout>
+</ScrollView>
