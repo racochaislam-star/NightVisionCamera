@@ -49,6 +49,7 @@ class RecordingService : LifecycleService() {
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var nightVisionManager: NightVisionManager
 
+    @Volatile
     var isRecording = false
         private set
     var recordingStartTime = 0L
@@ -207,15 +208,17 @@ class RecordingService : LifecycleService() {
                 updateNotification("🔴 تسجيل: ${durationMs / 1000}ث | ${fileSizeMb}MB")
             }
             is VideoRecordEvent.Finalize -> {
+                isRecording = false
                 if (!event.hasError()) {
                     Log.i(TAG, "Recording saved: $outputFilePath")
+                    updateNotification("✅ اكتمل التسجيل")
                     statusListener?.invoke("saved:$outputFilePath")
                     android.media.MediaScannerConnection.scanFile(this@RecordingService, arrayOf(outputFilePath), arrayOf("video/mp4"), null)
                 } else {
                     Log.e(TAG, "Recording error: ${event.error}")
+                    updateNotification("⚠️ خطأ في التسجيل")
                     statusListener?.invoke("error:${event.error}")
                 }
-                isRecording = false
             }
             else -> {}
         }
@@ -233,10 +236,9 @@ class RecordingService : LifecycleService() {
             cameraProvider?.unbindAll()
         } catch (e: Exception) { /* ignore */ }
 
-        isRecording = false
-        updateNotification("✅ اكتمل التسجيل")
+        updateNotification("⏳ جارٍ حفظ الفيديو...")
 
-        // Delay then stop service
+        // Delay then stop service to allow Finalize event to complete
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             stopSelf()
         }, 2000)

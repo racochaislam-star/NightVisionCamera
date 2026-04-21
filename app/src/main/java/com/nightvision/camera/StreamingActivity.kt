@@ -19,6 +19,7 @@ class StreamingActivity : AppCompatActivity() {
     private lateinit var binding: ActivityStreamingBinding
     private var streamingService: StreamingService? = null
     private var isBound = false
+    private var isBindingPending = false
     private val timerHandler = Handler(Looper.getMainLooper())
     private var elapsedSeconds = 0L
     private lateinit var nightVisionManager: NightVisionManager
@@ -28,6 +29,7 @@ class StreamingActivity : AppCompatActivity() {
             val binder = service as StreamingService.LocalBinder
             streamingService = binder.getService()
             isBound = true
+            isBindingPending = false
 
             streamingService?.statusListener = { status -> runOnUiThread { handleStatus(status) } }
             streamingService?.frameRateListener = { fps ->
@@ -44,6 +46,7 @@ class StreamingActivity : AppCompatActivity() {
         override fun onServiceDisconnected(name: ComponentName?) {
             streamingService = null
             isBound = false
+            isBindingPending = false
         }
     }
 
@@ -65,6 +68,12 @@ class StreamingActivity : AppCompatActivity() {
         setContentView(binding.root)
         nightVisionManager = NightVisionManager(this)
         setupUI()
+        bindToService()
+    }
+
+    private fun bindToService() {
+        if (isBound || isBindingPending) return
+        isBindingPending = true
         bindService(Intent(this, StreamingService::class.java), serviceConnection, BIND_AUTO_CREATE)
     }
 
@@ -109,10 +118,6 @@ class StreamingActivity : AppCompatActivity() {
             putExtra(StreamingService.EXTRA_NIGHT_MODE, nightMode)
         }
         startForegroundService(intent)
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            bindService(Intent(this, StreamingService::class.java), serviceConnection, BIND_AUTO_CREATE)
-        }, 300)
 
         elapsedSeconds = 0
         val ip = nightVisionManager.getDeviceIpAddress(this)
@@ -175,9 +180,19 @@ class StreamingActivity : AppCompatActivity() {
         timerHandler.removeCallbacks(timerRunnable)
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!isBound && !isBindingPending) bindToService()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         stopTimer()
-        if (isBound) { unbindService(serviceConnection); isBound = false }
+        if (isBound) {
+            streamingService?.statusListener = null
+            streamingService?.frameRateListener = null
+            unbindService(serviceConnection)
+            isBound = false
+        }
     }
 }

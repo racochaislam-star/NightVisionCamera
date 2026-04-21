@@ -19,6 +19,7 @@ class LocalRecordingActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLocalRecordingBinding
     private var recordingService: RecordingService? = null
     private var isBound = false
+    private var isBindingPending = false
     private val timerHandler = Handler(Looper.getMainLooper())
     private var elapsedSeconds = 0L
 
@@ -27,6 +28,7 @@ class LocalRecordingActivity : AppCompatActivity() {
             val binder = service as RecordingService.LocalBinder
             recordingService = binder.getService()
             isBound = true
+            isBindingPending = false
 
             recordingService?.statusListener = { status ->
                 runOnUiThread { handleStatus(status) }
@@ -44,6 +46,7 @@ class LocalRecordingActivity : AppCompatActivity() {
         override fun onServiceDisconnected(name: ComponentName?) {
             recordingService = null
             isBound = false
+            isBindingPending = false
         }
     }
 
@@ -103,9 +106,6 @@ class LocalRecordingActivity : AppCompatActivity() {
             putExtra(RecordingService.EXTRA_NIGHT_MODE, nightMode)
         }
         startForegroundService(intent)
-
-        // Bind after slight delay to ensure service started
-        Handler(Looper.getMainLooper()).postDelayed({ bindToService() }, 300)
 
         elapsedSeconds = 0
         updateUI(true)
@@ -197,19 +197,22 @@ class LocalRecordingActivity : AppCompatActivity() {
     }
 
     private fun bindToService() {
+        if (isBound || isBindingPending) return
         val intent = Intent(this, RecordingService::class.java)
+        isBindingPending = true
         bindService(intent, serviceConnection, BIND_AUTO_CREATE)
     }
 
     override fun onResume() {
         super.onResume()
-        if (!isBound) bindToService()
+        if (!isBound && !isBindingPending) bindToService()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         stopTimer()
         if (isBound) {
+            recordingService?.statusListener = null
             unbindService(serviceConnection)
             isBound = false
         }
