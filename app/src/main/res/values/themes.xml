@@ -15,8 +15,4 @@
         <item name="android:navigationBarColor">@color/bg_primary</item>
         <item name="android:windowBackground">@color/bg_primary</item>
     </style>
-    <style name="Theme.NightVisionCamera.Fullscreen" parent="Theme.NightVisionCamera">
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowBackground">@android:color/black</item>
-    </style>
 </resources>
